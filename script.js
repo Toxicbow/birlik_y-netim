@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveData();
                     renderTabs();
                     renderTable();
-                    showToast('Veriler başarıyla yüklendi!', 'success');
+                    showToast('Veriler başarıyla birleştirildi!', 'success');
                 } else {
                     throw new Error("Geçersiz veri formatı");
                 }
@@ -468,12 +468,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const result = JSON.parse(resultText);
                     if (Array.isArray(result)) {
-                        appData = result;
-                        currentTabId = appData.length > 0 ? appData[0].id : null;
+                        // Tüm tabloları mevcut verilerle BİRLEŞTİR (Merge)
+                        result.forEach(cloudTab => {
+                            const existingTabIndex = appData.findIndex(t => t.name.trim().toLowerCase() === cloudTab.name.trim().toLowerCase());
+                            if (existingTabIndex !== -1) {
+                                // İsimleri aynıysa, satırları güncelle
+                                appData[existingTabIndex].rows = cloudTab.rows;
+                            } else {
+                                // Yoksa yeni tablo olarak ekle
+                                cloudTab.id = generateId(); // Çakışma önleyici
+                                appData.push(cloudTab);
+                            }
+                        });
+                        
+                        // Eğer hiç aktif tablo yoksa ilkine geç
+                        if (!currentTabId && appData.length > 0) {
+                            currentTabId = appData[0].id;
+                        }
+                        
                         saveData();
                         renderTabs();
                         renderTable();
-                        showToast('Buluttan veriler başarıyla yüklendi!', 'success');
+                        showToast('Buluttaki tüm tablolar cihazınıza eklendi!', 'success');
                         syncCodeInput.value = '';
                     } else {
                         showToast('Buluttaki veri yapısı hatalı.', 'error');
