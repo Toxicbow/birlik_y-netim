@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State Management ---
     let appData = [];
     let currentTabId = null;
+    let currentView = 'ses-sorumlulugu'; // 'ses-sorumlulugu' or 'kayit-sorumlulugu'
 
     // --- DOM Elements ---
     // Navigation
@@ -23,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Table
     const tableBody = document.getElementById('table-body');
     const addRowBtn = document.getElementById('add-row-btn');
-    const rowTemplate = document.getElementById('row-template');
+    const rowTemplateSes = document.getElementById('row-template');
+    const rowTemplateKayit = document.getElementById('row-template-kayit');
     const emptyState = document.getElementById('empty-state');
     const tableWrapper = document.querySelector('.table-wrapper');
     
@@ -60,11 +62,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        if (appData.length > 0) {
-            currentTabId = appData[0].id;
-        } else {
-            currentTabId = null;
-        }
+        // Find first tab of current view
+        const firstTab = appData.find(t => (t.type || 'ses-sorumlulugu') === currentView);
+        currentTabId = firstTab ? firstTab.id : null;
+        
         renderTabs();
         renderTable();
     }
@@ -79,13 +80,29 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems.forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
-                navItems.forEach(nav => nav.classList.remove('active'));
-                item.classList.add('active');
-                
                 const targetView = item.getAttribute('data-view');
+                if (targetView === 'senkronizasyon' || targetView === 'ses-sorumlulugu' || targetView === 'kayit-sorumlulugu') {
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+                }
+
+                if (targetView === 'ses-sorumlulugu' || targetView === 'kayit-sorumlulugu') {
+                    syncTableToState();
+                    currentView = targetView;
+                    const firstTab = appData.find(t => (t.type || 'ses-sorumlulugu') === currentView);
+                    currentTabId = firstTab ? firstTab.id : null;
+                    renderTabs();
+                    renderTable();
+                }
+                
                 viewSections.forEach(view => {
                     view.classList.remove('active');
                     if(view.id === `view-${targetView}`) {
+                        view.classList.add('active');
+                    }
+                    // Since we use the same ID for table in both views (reusing ses view structure mostly)
+                    // we ensure the main view is active if it's either ses or kayit
+                    if ((targetView === 'ses-sorumlulugu' || targetView === 'kayit-sorumlulugu') && view.id === 'view-ses-sorumlulugu') {
                         view.classList.add('active');
                     }
                 });
@@ -171,6 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (key === 'total') {
                 valA = (parseFloat(a.streamer) || 0) + (parseFloat(a.public) || 0);
                 valB = (parseFloat(b.streamer) || 0) + (parseFloat(b.public) || 0);
+            } else if (key === 'kayitlar') {
+                valA = parseFloat(a.kayitlar) || 0;
+                valB = parseFloat(b.kayitlar) || 0;
             } else if (key === 'ghgp') {
                 valA = calculateGhgpValueForSort(a);
                 valB = calculateGhgpValueForSort(b);
@@ -196,16 +216,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateGhgpValueForSort(rowData) {
-        const currentIndex = getTabIndex(currentTabId);
-        const previousTab = currentIndex > 0 ? appData[currentIndex - 1] : null;
+        const currentIndex = appData.findIndex(t => t.id === currentTabId);
+        let previousTab = null;
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            if ((appData[i].type || 'ses-sorumlulugu') === currentView) {
+                previousTab = appData[i];
+                break;
+            }
+        }
+        
         if (!previousTab) return 0;
 
         const nick = rowData.nick.trim().toLowerCase();
         const oldData = previousTab.rows.find(r => r.nick.trim().toLowerCase() === nick);
         if (!oldData) return -999999;
 
-        const currentTotal = (parseFloat(rowData.streamer) || 0) + (parseFloat(rowData.public) || 0);
-        const oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
+        const currentTotal = currentView === 'ses-sorumlulugu' 
+            ? (parseFloat(rowData.streamer) || 0) + (parseFloat(rowData.public) || 0)
+            : (parseFloat(rowData.kayitlar) || 0);
+        const oldTotal = currentView === 'ses-sorumlulugu'
+            ? (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0)
+            : (parseFloat(oldData.kayitlar) || 0);
         
         if (oldTotal === 0) return 0;
         return ((currentTotal - oldTotal) / oldTotal) * 100;
@@ -218,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newTab = {
             id: generateId(),
             name: name,
+            type: currentView,
             rows: []
         };
         appData.push(newTab);
@@ -230,7 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTabs() {
         tabsList.innerHTML = '';
-        appData.forEach(tab => {
+        const filteredTabs = appData.filter(t => (t.type || 'ses-sorumlulugu') === currentView);
+        
+        filteredTabs.forEach(tab => {
             const btn = document.createElement('button');
             btn.className = `tab ${tab.id === currentTabId ? 'active' : ''}`;
             btn.textContent = tab.name;
@@ -259,6 +293,18 @@ document.addEventListener('DOMContentLoaded', () => {
         tableBody.innerHTML = '';
         const currentTab = getTabObject(currentTabId);
         
+        // Update Headers based on view
+        const sesCols = document.querySelectorAll('.ses-col');
+        const kayitCols = document.querySelectorAll('.kayit-col');
+        
+        if (currentView === 'ses-sorumlulugu') {
+            sesCols.forEach(c => c.style.display = '');
+            kayitCols.forEach(c => c.style.display = 'none');
+        } else {
+            sesCols.forEach(c => c.style.display = 'none');
+            kayitCols.forEach(c => c.style.display = '');
+        }
+
         if (currentTab) {
             currentTabTitle.textContent = currentTab.name;
             document.getElementById('add-row-btn').style.display = 'inline-flex';
@@ -287,12 +333,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const newData = [];
         
         rows.forEach(row => {
-            newData.push({
+            const data = {
                 nick: row.querySelector('.input-nick').value,
-                kisiler: row.querySelector('.input-kisiler').value,
-                streamer: row.querySelector('.input-streamer').value,
-                public: row.querySelector('.input-public').value
-            });
+                kisiler: row.querySelector('.input-kisiler').value
+            };
+            
+            if (currentView === 'ses-sorumlulugu') {
+                data.streamer = row.querySelector('.input-streamer').value;
+                data.public = row.querySelector('.input-public').value;
+            } else {
+                data.kayitlar = row.querySelector('.input-kayitlar').value;
+            }
+            
+            newData.push(data);
         });
         
         currentTab.rows = newData;
@@ -314,25 +367,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createRow(data = {}) {
-        const template = rowTemplate.content.cloneNode(true);
-        const tr = template.querySelector('tr');
+        const template = currentView === 'ses-sorumlulugu' ? rowTemplateSes : rowTemplateKayit;
+        const clone = template.content.cloneNode(true);
+        const tr = clone.querySelector('tr');
         
         const inputs = {
             nick: tr.querySelector('.input-nick'),
-            kisiler: tr.querySelector('.input-kisiler'),
-            streamer: tr.querySelector('.input-streamer'),
-            public: tr.querySelector('.input-public')
+            kisiler: tr.querySelector('.input-kisiler')
         };
+        
+        if (currentView === 'ses-sorumlulugu') {
+            inputs.streamer = tr.querySelector('.input-streamer');
+            inputs.public = tr.querySelector('.input-public');
+        } else {
+            inputs.kayitlar = tr.querySelector('.input-kayitlar');
+        }
 
         if (data.nick) inputs.nick.value = data.nick;
         if (data.kisiler) inputs.kisiler.value = data.kisiler;
-        if (data.streamer !== undefined && data.streamer !== '') inputs.streamer.value = data.streamer;
-        if (data.public !== undefined && data.public !== '') inputs.public.value = data.public;
+        
+        if (currentView === 'ses-sorumlulugu') {
+            if (data.streamer !== undefined && data.streamer !== '') inputs.streamer.value = data.streamer;
+            if (data.public !== undefined && data.public !== '') inputs.public.value = data.public;
+        } else {
+            if (data.kayitlar !== undefined && data.kayitlar !== '') inputs.kayitlar.value = data.kayitlar;
+        }
 
         Object.values(inputs).forEach(input => {
             input.addEventListener('input', () => {
                 if (input === inputs.nick) {
-                    calculateAllRows(); // Nick changed, might affect previous tab matching
+                    calculateAllRows();
                 } else {
                     calculateRow(tr);
                 }
@@ -348,7 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
             checkEmptyState();
         });
 
-        // Base calculation for totals and categories
         calculateRow(tr, true); 
 
         return tr;
@@ -356,25 +419,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Only calculating Total and Category for single row
     function calculateRow(tr, skipGhgp = false) {
-        const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
-        const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
-        const total = streamerVal + publicVal;
-        
-        tr.querySelector('.cell-total').textContent = Number.isInteger(total) ? total : total.toFixed(1);
-
+        let total = 0;
         const catSpan = tr.querySelector('.category-badge');
-        if (total >= 30) {
-            catSpan.className = 'category-badge cat-good';
-            catSpan.textContent = 'İyi (30+)';
-        } else if (total >= 20) {
-            catSpan.className = 'category-badge cat-average';
-            catSpan.textContent = 'Ortalama (20-30)';
-        } else if (total > 0) {
-            catSpan.className = 'category-badge cat-bad';
-            catSpan.textContent = 'Kötü (<20)';
+
+        if (currentView === 'ses-sorumlulugu') {
+            const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
+            const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
+            total = streamerVal + publicVal;
+            
+            tr.querySelector('.cell-total').textContent = Number.isInteger(total) ? total : total.toFixed(1);
+
+            if (total >= 30) {
+                catSpan.className = 'category-badge cat-good';
+                catSpan.textContent = 'İyi (30+)';
+            } else if (total >= 20) {
+                catSpan.className = 'category-badge cat-average';
+                catSpan.textContent = 'Ortalama (20-30)';
+            } else if (total > 0) {
+                catSpan.className = 'category-badge cat-bad';
+                catSpan.textContent = 'Kötü (<20)';
+            } else {
+                catSpan.className = 'category-badge none';
+                catSpan.textContent = 'Belirsiz';
+            }
         } else {
-            catSpan.className = 'category-badge none';
-            catSpan.textContent = 'Belirsiz';
+            // Kayıt Sorumluluğu
+            total = parseInt(tr.querySelector('.input-kayitlar').value) || 0;
+            
+            if (total >= 30) {
+                catSpan.className = 'category-badge cat-good';
+                catSpan.textContent = 'Teyit İyi (30+)';
+            } else if (total >= 10) {
+                catSpan.className = 'category-badge cat-average';
+                catSpan.textContent = 'Teyit Ortalama (10-30)';
+            } else if (total > 0) {
+                catSpan.className = 'category-badge cat-bad';
+                catSpan.textContent = 'Kötü (<10)';
+            } else {
+                catSpan.className = 'category-badge none';
+                catSpan.textContent = 'Belirsiz';
+            }
         }
 
         if (!skipGhgp) calculateAllRows();
@@ -382,26 +466,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // GHGP calculation requires looking at the previous tab
     function calculateAllRows() {
-        const currentIndex = getTabIndex(currentTabId);
-        const previousTab = currentIndex > 0 ? appData[currentIndex - 1] : null;
+        const currentIndex = appData.findIndex(t => t.id === currentTabId);
+        // Find previous tab OF THE SAME TYPE
+        let previousTab = null;
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            if ((appData[i].type || 'ses-sorumlulugu') === currentView) {
+                previousTab = appData[i];
+                break;
+            }
+        }
         
         const rows = document.querySelectorAll('.mod-row');
         
         rows.forEach(tr => {
             const nick = tr.querySelector('.input-nick').value.trim().toLowerCase();
-            const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
-            const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
-            const total = streamerVal + publicVal;
+            let total = 0;
+            if (currentView === 'ses-sorumlulugu') {
+                const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
+                const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
+                total = streamerVal + publicVal;
+            } else {
+                total = parseFloat(tr.querySelector('.input-kayitlar').value) || 0;
+            }
             
             const badgeSpan = tr.querySelector('.ghgp-badge');
             badgeSpan.className = 'ghgp-badge neutral';
             badgeSpan.innerHTML = '-';
 
             if (previousTab && nick) {
-                // Find matching nick in previous tab
                 const oldData = previousTab.rows.find(r => r.nick.trim().toLowerCase() === nick);
                 if (oldData) {
-                    const oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
+                    let oldTotal = 0;
+                    if (currentView === 'ses-sorumlulugu') {
+                        oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
+                    } else {
+                        oldTotal = parseFloat(oldData.kayitlar) || 0;
+                    }
                     
                     if (oldTotal > 0) {
                         const ghgp = (((total - oldTotal) / oldTotal) * 100);

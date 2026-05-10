@@ -28,6 +28,10 @@
                     <div class="nav-icon"><i class="fa-solid fa-headset"></i></div>
                     <span>Ses Sorumluluğu</span>
                 </a>
+                <a href="#" class="nav-item" data-view="kayit-sorumlulugu">
+                    <div class="nav-icon"><i class="fa-solid fa-microphone-lines"></i></div>
+                    <span>Kayıt Sorumluluğu</span>
+                </a>
                 
                 <div class="nav-label">SİSTEM</div>
                 <a href="#" class="nav-item" data-view="senkronizasyon">
@@ -63,13 +67,15 @@
                 <div class="table-card">
                     <div class="table-wrapper">
                         <table id="mod-table">
-                            <thead>
+                            <thead id="table-head">
+                                <!-- Headers will be injected by JS or kept static if compatible -->
                                 <tr>
                                     <th data-sort="nick" class="sortable">NİCK <i class="fa-solid fa-sort"></i></th>
                                     <th data-sort="kisiler" class="sortable">KİŞİLER (ROL/ID) <i class="fa-solid fa-sort"></i></th>
-                                    <th data-sort="streamer" class="sortable">STREAMER <i class="fa-solid fa-sort"></i></th>
-                                    <th data-sort="public" class="sortable">PUBLİC <i class="fa-solid fa-sort"></i></th>
-                                    <th data-sort="total" class="center sortable">SÜRELER (TOPLAM) <i class="fa-solid fa-sort"></i></th>
+                                    <th data-sort="streamer" class="sortable ses-col">STREAMER <i class="fa-solid fa-sort"></i></th>
+                                    <th data-sort="public" class="sortable ses-col">PUBLİC <i class="fa-solid fa-sort"></i></th>
+                                    <th data-sort="total" class="center sortable ses-col">SÜRELER (TOPLAM) <i class="fa-solid fa-sort"></i></th>
+                                    <th data-sort="kayitlar" class="center sortable kayit-col" style="display:none">TOPLAM KAYITLAR <i class="fa-solid fa-sort"></i></th>
                                     <th data-sort="ghgp" class="center sortable">GHGP % <i class="fa-solid fa-sort"></i></th>
                                     <th class="center">KATEGORİ</th>
                                     <th class="center">SİL</th>
@@ -146,14 +152,26 @@
         </div>
     </div>
 
-    <!-- Row Template -->
+    <!-- Row Template (Ses) -->
     <template id="row-template">
-        <tr class="mod-row">
+        <tr class="mod-row row-ses">
             <td><input type="text" class="input-nick" placeholder="Nick"></td>
             <td><input type="text" class="input-kisiler" placeholder="Kişiler"></td>
             <td><input type="number" class="input-streamer" placeholder="0" min="0" step="0.1"></td>
             <td><input type="number" class="input-public" placeholder="0" min="0" step="0.1"></td>
             <td class="cell-total center">0</td>
+            <td class="cell-ghgp center"><span class="ghgp-badge neutral">-</span></td>
+            <td class="cell-category center"><span class="category-badge none">Belirsiz</span></td>
+            <td class="center"><button class="btn-icon delete-btn"><i class="fa-solid fa-xmark"></i></button></td>
+        </tr>
+    </template>
+
+    <!-- Row Template (Kayit) -->
+    <template id="row-template-kayit">
+        <tr class="mod-row row-kayit">
+            <td><input type="text" class="input-nick" placeholder="Nick"></td>
+            <td><input type="text" class="input-kisiler" placeholder="Kişiler"></td>
+            <td><input type="number" class="input-kayitlar" placeholder="0" min="0"></td>
             <td class="cell-ghgp center"><span class="ghgp-badge neutral">-</span></td>
             <td class="cell-category center"><span class="category-badge none">Belirsiz</span></td>
             <td class="center"><button class="btn-icon delete-btn"><i class="fa-solid fa-xmark"></i></button></td>
