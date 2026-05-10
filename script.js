@@ -379,23 +379,20 @@ document.addEventListener('DOMContentLoaded', () => {
         loaderOverlay.style.display = 'flex';
         
         try {
-            // Using restful-api.dev for free JSON storage
-            const payload = {
-                name: "birlik-v2",
-                data: appData
-            };
+            // Using dpaste.com for robust text/json storage
+            const formData = new URLSearchParams();
+            formData.append('content', JSON.stringify(appData));
+            formData.append('syntax', 'json');
+            formData.append('expiry_days', '365'); // 1 year retention
             
-            const response = await fetch('https://api.restful-api.dev/objects', {
+            const response = await fetch('https://dpaste.com/api/v2/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+                body: formData
             });
             
             if (response.ok) {
-                const result = await response.json();
-                const binId = result.id;
+                const resultUrl = await response.text();
+                const binId = resultUrl.trim().split('/').pop();
                 
                 if (binId) {
                     syncCodeDisplay.textContent = binId;
@@ -461,23 +458,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Normal REST API approach
-            const response = await fetch(`https://api.restful-api.dev/objects/${code}`, {
+            // Normal API approach via dpaste
+            const response = await fetch(`https://dpaste.com/${code}.txt`, {
                 method: 'GET'
             });
 
             if (response.ok) {
-                const result = await response.json();
-                if (result && result.data && Array.isArray(result.data)) {
-                    appData = result.data;
-                    currentTabId = appData.length > 0 ? appData[0].id : null;
-                    saveData();
-                    renderTabs();
-                    renderTable();
-                    showToast('Buluttan veriler başarıyla yüklendi!', 'success');
-                    syncCodeInput.value = '';
-                } else {
-                    showToast('Buluttaki veri yapısı hatalı.', 'error');
+                const resultText = await response.text();
+                try {
+                    const result = JSON.parse(resultText);
+                    if (Array.isArray(result)) {
+                        appData = result;
+                        currentTabId = appData.length > 0 ? appData[0].id : null;
+                        saveData();
+                        renderTabs();
+                        renderTable();
+                        showToast('Buluttan veriler başarıyla yüklendi!', 'success');
+                        syncCodeInput.value = '';
+                    } else {
+                        showToast('Buluttaki veri yapısı hatalı.', 'error');
+                    }
+                } catch(e) {
+                    showToast('Buluttaki veri JSON formatında değil.', 'error');
                 }
             } else {
                 showToast('Geçersiz kod veya bulut verisi bulunamadı.', 'error');
