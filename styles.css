@@ -85,6 +85,33 @@ body {
     overflow-y: auto;
 }
 
+.sidebar-media {
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: auto;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.sidebar-gif {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-subtle);
+    filter: grayscale(20%);
+}
+
+.sidebar-gif:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    filter: grayscale(0%);
+    border-color: var(--accent-blue);
+    box-shadow: 0 5px 15px rgba(88, 101, 242, 0.2);
+}
+
 .nav-label {
     font-size: 0.75rem;
     font-weight: 700;
@@ -130,41 +157,9 @@ body {
     color: var(--accent-blue);
 }
 
-.sidebar-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--border-subtle);
-}
-
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--bg-elevated);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.nav-item.active {
+    background-color: rgba(88, 101, 242, 0.1);
     color: var(--accent-blue);
-}
-
-.details {
-    display: flex;
-    flex-direction: column;
-}
-
-.details .name {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.details .role {
-    font-size: 0.8rem;
-    color: var(--text-muted);
 }
 
 /* --- Main Content --- */
