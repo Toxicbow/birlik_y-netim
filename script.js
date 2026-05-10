@@ -70,10 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveData() {
-        // Collect current table data before saving
-        if (currentTabId) {
-            syncTableToState();
-        }
         localStorage.setItem('birlik-v2-data', JSON.stringify(appData));
     }
 
