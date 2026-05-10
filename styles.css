@@ -386,6 +386,27 @@ th {
     z-index: 10;
 }
 
+th.sortable {
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+th.sortable:hover {
+    background: rgba(88, 101, 242, 0.1);
+    color: var(--accent-blue);
+}
+
+th.sortable i {
+    font-size: 0.7rem;
+    margin-left: 0.4rem;
+    opacity: 0.5;
+}
+
+th.sortable:hover i {
+    opacity: 1;
+}
+
 th.center, td.center {
     text-align: center;
 }

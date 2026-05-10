@@ -149,6 +149,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Kod kopyalandı!', 'success');
             });
         });
+
+        // Table Sorting
+        const tableHeaders = document.querySelectorAll('th.sortable');
+        tableHeaders.forEach(th => {
+            th.addEventListener('click', () => {
+                const sortKey = th.getAttribute('data-sort');
+                sortTable(sortKey);
+            });
+        });
+    }
+
+    function sortTable(key) {
+        syncTableToState(); // Get latest input values
+        const tab = getTabObject(currentTabId);
+        if (!tab || !tab.rows || tab.rows.length <= 1) return;
+
+        tab.rows.sort((a, b) => {
+            let valA, valB;
+
+            if (key === 'total') {
+                valA = (parseFloat(a.streamer) || 0) + (parseFloat(a.public) || 0);
+                valB = (parseFloat(b.streamer) || 0) + (parseFloat(b.public) || 0);
+            } else if (key === 'ghgp') {
+                valA = calculateGhgpValueForSort(a);
+                valB = calculateGhgpValueForSort(b);
+            } else if (key === 'streamer' || key === 'public') {
+                valA = parseFloat(a[key]) || 0;
+                valB = parseFloat(b[key]) || 0;
+            } else {
+                valA = (a[key] || '').toString().toLowerCase();
+                valB = (b[key] || '').toString().toLowerCase();
+            }
+
+            // Descending order (Most to Least)
+            if (typeof valA === 'number') {
+                return valB - valA;
+            } else {
+                return valB.localeCompare(valA);
+            }
+        });
+
+        saveData();
+        renderTable();
+        showToast('En fazladan aza doğru sıralandı.', 'info');
+    }
+
+    function calculateGhgpValueForSort(rowData) {
+        const currentIndex = getTabIndex(currentTabId);
+        const previousTab = currentIndex > 0 ? appData[currentIndex - 1] : null;
+        if (!previousTab) return 0;
+
+        const nick = rowData.nick.trim().toLowerCase();
+        const oldData = previousTab.rows.find(r => r.nick.trim().toLowerCase() === nick);
+        if (!oldData) return -999999;
+
+        const currentTotal = (parseFloat(rowData.streamer) || 0) + (parseFloat(rowData.public) || 0);
+        const oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
+        
+        if (oldTotal === 0) return 0;
+        return ((currentTotal - oldTotal) / oldTotal) * 100;
     }
 
     // --- Tabs Logic ---
