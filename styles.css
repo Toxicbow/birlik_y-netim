@@ -21,10 +21,9 @@
     --accent-yellow: #FEE75C;
     --accent-orange: #E67E22;
     
-    --cat-legendary: #ffaa00; 
-    --cat-excellent: #00b0f4; 
     --cat-good: #57f287;      
-    --cat-needs-work: #ed4245; 
+    --cat-average: #ffaa00; 
+    --cat-bad: #ed4245; 
 }
 
 * {
@@ -458,10 +457,9 @@ input[type="number"] {
     min-width: 140px;
 }
 
-.cat-legendary { background: rgba(255, 170, 0, 0.15); color: var(--cat-legendary); border: 1px solid rgba(255, 170, 0, 0.3); }
-.cat-excellent { background: rgba(0, 176, 244, 0.15); color: var(--cat-excellent); border: 1px solid rgba(0, 176, 244, 0.3); }
 .cat-good { background: rgba(87, 242, 135, 0.15); color: var(--cat-good); border: 1px solid rgba(87, 242, 135, 0.3); }
-.cat-needs-work { background: rgba(237, 66, 69, 0.15); color: var(--cat-needs-work); border: 1px solid rgba(237, 66, 69, 0.3); }
+.cat-average { background: rgba(255, 170, 0, 0.15); color: var(--cat-average); border: 1px solid rgba(255, 170, 0, 0.3); }
+.cat-bad { background: rgba(237, 66, 69, 0.15); color: var(--cat-bad); border: 1px solid rgba(237, 66, 69, 0.3); }
 .category-badge.none { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
 
 /* --- Sync Page --- */

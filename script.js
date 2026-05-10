@@ -297,17 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const catSpan = tr.querySelector('.category-badge');
         if (total >= 30) {
-            catSpan.className = 'category-badge cat-legendary';
-            catSpan.textContent = 'Efsanevi (30+)';
-        } else if (total >= 20) {
-            catSpan.className = 'category-badge cat-excellent';
-            catSpan.textContent = 'Mükemmel (20-30)';
-        } else if (total >= 10) {
             catSpan.className = 'category-badge cat-good';
-            catSpan.textContent = 'İyi (10-20)';
+            catSpan.textContent = 'İyi (30+)';
+        } else if (total >= 20) {
+            catSpan.className = 'category-badge cat-average';
+            catSpan.textContent = 'Ortalama (20-30)';
         } else if (total > 0) {
-            catSpan.className = 'category-badge cat-needs-work';
-            catSpan.textContent = 'Geliştirilmeli (<10)';
+            catSpan.className = 'category-badge cat-bad';
+            catSpan.textContent = 'Kötü (<20)';
         } else {
             catSpan.className = 'category-badge none';
             catSpan.textContent = 'Belirsiz';
