@@ -3,64 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Birlik Moderatör Performans Takip</title>
+    <title>Birlik Yönetim Paneli</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
-            <div class="header-content">
-                <h1><i class="fa-solid fa-shield-halved"></i> Birlik Moderatör Performans Takip</h1>
-                <p>Haftalık / Aylık moderatör istatistikleri ve kategorizasyon paneli</p>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>BİRLİK</span>
+                </div>
             </div>
-            <div class="header-actions">
-                <button id="add-row-btn" class="btn primary-btn"><i class="fa-solid fa-plus"></i> Moderatör Ekle</button>
-                <button id="export-discord-btn" class="btn discord-btn"><i class="fa-brands fa-discord"></i> Discord İçin Kopyala</button>
-                <button id="clear-data-btn" class="btn danger-btn"><i class="fa-solid fa-trash"></i> Verileri Temizle</button>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-label">YÖNETİM</div>
+                <a href="#" class="nav-item active" data-view="ses-sorumlulugu">
+                    <div class="nav-icon"><i class="fa-solid fa-headset"></i></div>
+                    <span>Ses Sorumluluğu</span>
+                </a>
+                
+                <div class="nav-label">SİSTEM</div>
+                <a href="#" class="nav-item" data-view="senkronizasyon">
+                    <div class="nav-icon"><i class="fa-solid fa-cloud"></i></div>
+                    <span>Bulut Kayıt</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                    <div class="details">
+                        <span class="name">Yönetici</span>
+                        <span class="role">Admin Panel</span>
+                    </div>
+                </div>
             </div>
-        </header>
+        </aside>
 
-        <div class="table-container">
-            <table id="mod-table">
-                <thead>
-                    <tr>
-                        <th>Nick</th>
-                        <th>Kişiler (Rol/ID)</th>
-                        <th>Önceki Süre</th>
-                        <th>Streamer</th>
-                        <th>Public</th>
-                        <th>Süreler (Toplam)</th>
-                        <th>GHGP %</th>
-                        <th>Kategori</th>
-                        <th>Sil</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body">
-                    <!-- Rows will be injected by JS -->
-                </tbody>
-            </table>
-        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- View: Ses Sorumluluğu -->
+            <div id="view-ses-sorumlulugu" class="view-section active">
+                
+                <!-- Tab Bar (Excel Style) -->
+                <div class="tabs-container">
+                    <div class="tabs-scroll" id="tabs-list">
+                        <!-- Tabs will be injected here -->
+                    </div>
+                    <button id="add-tab-btn" class="btn-icon add-tab" title="Yeni Tablo Oluştur"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2 class="view-title" id="current-tab-title">Yükleniyor...</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="add-row-btn" class="btn action-btn"><i class="fa-solid fa-plus"></i> Satır Ekle</button>
+                        <button id="delete-tab-btn" class="btn danger-btn"><i class="fa-solid fa-trash"></i> Tabloyu Sil</button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-wrapper">
+                        <table id="mod-table">
+                            <thead>
+                                <tr>
+                                    <th>NİCK</th>
+                                    <th>KİŞİLER (ROL/ID)</th>
+                                    <th>STREAMER</th>
+                                    <th>PUBLİC</th>
+                                    <th class="center">SÜRELER (TOPLAM)</th>
+                                    <th class="center">GHGP %</th>
+                                    <th class="center">KATEGORİ</th>
+                                    <th class="center">SİL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <!-- Rows will be injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-empty-state" id="empty-state" style="display: none;">
+                        <i class="fa-solid fa-table-list"></i>
+                        <h3>Veri Bulunamadı</h3>
+                        <p>Tabloya veri eklemek için "Satır Ekle" butonunu kullanın.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Senkronizasyon -->
+            <div id="view-senkronizasyon" class="view-section" style="display: none;">
+                <div class="toolbar">
+                    <h2 class="view-title">Bulut Senkronizasyon</h2>
+                </div>
+                
+                <div class="sync-grid">
+                    <div class="sync-card upload-card">
+                        <div class="sync-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <h3>Buluta Kaydet</h3>
+                        <p>Mevcut tüm sekmeleri ve verileri güvenli bir şekilde buluta yükleyin ve diğer cihazlarda kullanmak için bir kod alın.</p>
+                        <button id="cloud-save-btn" class="btn action-btn"><i class="fa-solid fa-upload"></i> Verileri Yükle</button>
+                        <div id="save-result" class="sync-result hidden">
+                            <span class="result-label">Aktarım Kodunuz:</span>
+                            <div class="code-box">
+                                <span id="sync-code-display">-</span>
+                                <button id="copy-code-btn" class="btn-icon"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                            <p class="result-hint">Bu kodu kopyalayın ve diğer cihazda indirmek için kullanın.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="sync-card download-card">
+                        <div class="sync-icon"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                        <h3>Buluttan İndir</h3>
+                        <p>Daha önce oluşturulmuş bir aktarım kodunu girerek buluttaki verileri bu cihaza indirin. <br><br><strong>Dikkat:</strong> Mevcut verileriniz silinir!</p>
+                        <div class="input-group">
+                            <input type="text" id="sync-code-input" placeholder="Aktarım Kodunu Girin (Örn: 663e...)">
+                        </div>
+                        <button id="cloud-load-btn" class="btn action-btn secondary"><i class="fa-solid fa-download"></i> Verileri İndir</button>
+                    </div>
+                </div>
+            </div>
+        </main>
         
         <div id="toast-container"></div>
     </div>
     
+    <!-- Modal for New Tab -->
+    <div id="new-tab-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Yeni Tablo Oluştur</h3>
+                <button class="close-modal btn-icon"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="tab-name-input">Tablo Adı / Tarih Aralığı</label>
+                    <input type="text" id="tab-name-input" placeholder="Örn: 10 Mayıs - 17 Mayıs">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn close-modal">İptal</button>
+                <button id="confirm-tab-btn" class="btn action-btn">Oluştur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row Template -->
     <template id="row-template">
         <tr class="mod-row">
             <td><input type="text" class="input-nick" placeholder="Nick"></td>
             <td><input type="text" class="input-kisiler" placeholder="Kişiler"></td>
-            <td><input type="number" class="input-old" placeholder="0" min="0" step="0.1"></td>
             <td><input type="number" class="input-streamer" placeholder="0" min="0" step="0.1"></td>
             <td><input type="number" class="input-public" placeholder="0" min="0" step="0.1"></td>
-            <td class="cell-total">0</td>
-            <td class="cell-ghgp"><span class="ghgp-badge neutral">0%</span></td>
-            <td class="cell-category"><span class="category-badge none">Belirsiz</span></td>
-            <td><button class="btn-icon delete-btn"><i class="fa-solid fa-xmark"></i></button></td>
+            <td class="cell-total center">0</td>
+            <td class="cell-ghgp center"><span class="ghgp-badge neutral">-</span></td>
+            <td class="cell-category center"><span class="category-badge none">Belirsiz</span></td>
+            <td class="center"><button class="btn-icon delete-btn"><i class="fa-solid fa-xmark"></i></button></td>
         </tr>
     </template>
+
+    <!-- Overlay loader for sync -->
+    <div id="loader-overlay" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>İşlem yapılıyor...</p>
+    </div>
 
     <script src="script.js"></script>
 </body>

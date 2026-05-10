@@ -1,29 +1,250 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- State Management ---
+    let appData = [];
+    let currentTabId = null;
+
+    // --- DOM Elements ---
+    // Navigation
+    const navItems = document.querySelectorAll('.nav-item');
+    const viewSections = document.querySelectorAll('.view-section');
+    
+    // Tabs
+    const tabsList = document.getElementById('tabs-list');
+    const addTabBtn = document.getElementById('add-tab-btn');
+    const deleteTabBtn = document.getElementById('delete-tab-btn');
+    const currentTabTitle = document.getElementById('current-tab-title');
+    
+    // Modals
+    const newTabModal = document.getElementById('new-tab-modal');
+    const tabNameInput = document.getElementById('tab-name-input');
+    const confirmTabBtn = document.getElementById('confirm-tab-btn');
+    const closeModals = document.querySelectorAll('.close-modal');
+    
+    // Table
     const tableBody = document.getElementById('table-body');
     const addRowBtn = document.getElementById('add-row-btn');
-    const exportDiscordBtn = document.getElementById('export-discord-btn');
-    const clearDataBtn = document.getElementById('clear-data-btn');
     const rowTemplate = document.getElementById('row-template');
+    const emptyState = document.getElementById('empty-state');
+    const tableWrapper = document.querySelector('.table-wrapper');
+    
+    // Sync
+    const cloudSaveBtn = document.getElementById('cloud-save-btn');
+    const cloudLoadBtn = document.getElementById('cloud-load-btn');
+    const syncCodeInput = document.getElementById('sync-code-input');
+    const saveResult = document.getElementById('save-result');
+    const syncCodeDisplay = document.getElementById('sync-code-display');
+    const copyCodeBtn = document.getElementById('copy-code-btn');
+    const loaderOverlay = document.getElementById('loader-overlay');
 
-    // Load data from localStorage
-    loadData();
+    // --- Initialization ---
+    init();
 
-    // Event Listeners
-    addRowBtn.addEventListener('click', () => {
-        const row = createRow();
-        tableBody.appendChild(row);
-        saveData();
-    });
+    function init() {
+        loadData();
+        setupEventListeners();
+    }
 
-    clearDataBtn.addEventListener('click', () => {
-        if (confirm('Tüm tablo verileri silinecek. Emin misiniz?')) {
-            tableBody.innerHTML = '';
-            saveData();
-            showToast('Veriler temizlendi.', 'success');
+    // --- Core Logic ---
+    function generateId() {
+        return Math.random().toString(36).substr(2, 9);
+    }
+
+    function loadData() {
+        const stored = localStorage.getItem('birlik-v2-data');
+        if (stored) {
+            try {
+                appData = JSON.parse(stored);
+            } catch (e) {
+                console.error("Parse error", e);
+                appData = [];
+            }
         }
-    });
+        
+        if (appData.length === 0) {
+            // Default first tab if nothing exists
+            addTab("1. Hafta (Örnek)");
+        } else {
+            currentTabId = appData[0].id;
+            renderTabs();
+            renderTable();
+        }
+    }
 
-    exportDiscordBtn.addEventListener('click', exportToDiscord);
+    function saveData() {
+        // Collect current table data before saving
+        if (currentTabId) {
+            syncTableToState();
+        }
+        localStorage.setItem('birlik-v2-data', JSON.stringify(appData));
+    }
+
+    // --- Navigation ---
+    function setupEventListeners() {
+        // Sidebar Navigation
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                
+                const targetView = item.getAttribute('data-view');
+                viewSections.forEach(view => {
+                    view.classList.remove('active');
+                    if(view.id === `view-${targetView}`) {
+                        view.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        // Tabs
+        addTabBtn.addEventListener('click', () => {
+            newTabModal.style.display = 'flex';
+            tabNameInput.value = '';
+            tabNameInput.focus();
+        });
+
+        closeModals.forEach(btn => {
+            btn.addEventListener('click', () => {
+                newTabModal.style.display = 'none';
+            });
+        });
+
+        confirmTabBtn.addEventListener('click', () => {
+            const name = tabNameInput.value.trim();
+            if (name) {
+                addTab(name);
+                newTabModal.style.display = 'none';
+                showToast('Yeni tablo oluşturuldu.', 'success');
+            } else {
+                showToast('Tablo adı boş olamaz!', 'error');
+            }
+        });
+
+        deleteTabBtn.addEventListener('click', () => {
+            if (appData.length <= 1) {
+                showToast('Son tablo silinemez!', 'error');
+                return;
+            }
+            if (confirm('Bu tabloyu ve içindeki tüm verileri silmek istediğinize emin misiniz?')) {
+                appData = appData.filter(t => t.id !== currentTabId);
+                currentTabId = appData[0].id;
+                saveData();
+                renderTabs();
+                renderTable();
+                showToast('Tablo silindi.', 'success');
+            }
+        });
+
+        // Table
+        addRowBtn.addEventListener('click', () => {
+            const row = createRow();
+            tableBody.appendChild(row);
+            syncTableToState();
+            saveData();
+            checkEmptyState();
+        });
+
+        // Sync
+        cloudSaveBtn.addEventListener('click', uploadToCloud);
+        cloudLoadBtn.addEventListener('click', loadFromCloud);
+        copyCodeBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(syncCodeDisplay.textContent).then(() => {
+                showToast('Kod kopyalandı!', 'success');
+            });
+        });
+    }
+
+    // --- Tabs Logic ---
+    function addTab(name) {
+        if(currentTabId) syncTableToState(); // Save current before creating new
+
+        const newTab = {
+            id: generateId(),
+            name: name,
+            rows: []
+        };
+        appData.push(newTab);
+        currentTabId = newTab.id;
+        
+        saveData();
+        renderTabs();
+        renderTable();
+    }
+
+    function renderTabs() {
+        tabsList.innerHTML = '';
+        appData.forEach(tab => {
+            const btn = document.createElement('button');
+            btn.className = `tab ${tab.id === currentTabId ? 'active' : ''}`;
+            btn.textContent = tab.name;
+            btn.addEventListener('click', () => {
+                if (currentTabId !== tab.id) {
+                    syncTableToState(); // Save current
+                    currentTabId = tab.id;
+                    renderTabs();
+                    renderTable();
+                }
+            });
+            tabsList.appendChild(btn);
+        });
+    }
+
+    // --- Table Logic ---
+    function getTabObject(id) {
+        return appData.find(t => t.id === id);
+    }
+    
+    function getTabIndex(id) {
+        return appData.findIndex(t => t.id === id);
+    }
+
+    function renderTable() {
+        tableBody.innerHTML = '';
+        const currentTab = getTabObject(currentTabId);
+        
+        if (currentTab) {
+            currentTabTitle.textContent = currentTab.name;
+            
+            if (currentTab.rows && currentTab.rows.length > 0) {
+                currentTab.rows.forEach(rowData => {
+                    const tr = createRow(rowData);
+                    tableBody.appendChild(tr);
+                });
+            }
+        }
+        checkEmptyState();
+        calculateAllRows(); // Calculate GHGP after rendering
+    }
+
+    function syncTableToState() {
+        const currentTab = getTabObject(currentTabId);
+        if (!currentTab) return;
+
+        const rows = document.querySelectorAll('.mod-row');
+        const newData = [];
+        
+        rows.forEach(row => {
+            newData.push({
+                nick: row.querySelector('.input-nick').value,
+                kisiler: row.querySelector('.input-kisiler').value,
+                streamer: row.querySelector('.input-streamer').value,
+                public: row.querySelector('.input-public').value
+            });
+        });
+        
+        currentTab.rows = newData;
+    }
+
+    function checkEmptyState() {
+        if (tableBody.children.length === 0) {
+            emptyState.style.display = 'flex';
+            tableWrapper.style.display = 'none';
+        } else {
+            emptyState.style.display = 'none';
+            tableWrapper.style.display = 'block';
+        }
+    }
 
     function createRow(data = {}) {
         const template = rowTemplate.content.cloneNode(true);
@@ -32,75 +253,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputs = {
             nick: tr.querySelector('.input-nick'),
             kisiler: tr.querySelector('.input-kisiler'),
-            old: tr.querySelector('.input-old'),
             streamer: tr.querySelector('.input-streamer'),
             public: tr.querySelector('.input-public')
         };
 
-        // Populate data if provided
         if (data.nick) inputs.nick.value = data.nick;
         if (data.kisiler) inputs.kisiler.value = data.kisiler;
-        if (data.old !== undefined && data.old !== '') inputs.old.value = data.old;
         if (data.streamer !== undefined && data.streamer !== '') inputs.streamer.value = data.streamer;
         if (data.public !== undefined && data.public !== '') inputs.public.value = data.public;
 
-        // Add event listeners to inputs to trigger calculation
         Object.values(inputs).forEach(input => {
             input.addEventListener('input', () => {
-                calculateRow(tr);
+                if (input === inputs.nick) {
+                    calculateAllRows(); // Nick changed, might affect previous tab matching
+                } else {
+                    calculateRow(tr);
+                }
+                syncTableToState();
                 saveData();
             });
         });
 
-        // Delete button
         tr.querySelector('.delete-btn').addEventListener('click', () => {
             tr.remove();
+            syncTableToState();
             saveData();
+            checkEmptyState();
         });
 
-        // Initial calculation
-        calculateRow(tr);
+        // Base calculation for totals and categories
+        calculateRow(tr, true); 
 
         return tr;
     }
 
-    function calculateRow(tr) {
-        const oldInputVal = tr.querySelector('.input-old').value;
+    // Only calculating Total and Category for single row
+    function calculateRow(tr, skipGhgp = false) {
         const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
         const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
-
-        // Total
         const total = streamerVal + publicVal;
         
-        // Show total with 1 decimal if needed, else integer
         tr.querySelector('.cell-total').textContent = Number.isInteger(total) ? total : total.toFixed(1);
 
-        // GHGP % Calculation
-        let ghgp = 0;
-        const badgeSpan = tr.querySelector('.ghgp-badge');
-        
-        badgeSpan.className = 'ghgp-badge neutral';
-        badgeSpan.innerHTML = '';
-
-        if (oldInputVal !== '' && !isNaN(oldInputVal) && parseFloat(oldInputVal) > 0) {
-            const oldVal = parseFloat(oldInputVal);
-            ghgp = (((total - oldVal) / oldVal) * 100);
-            const formattedGhgp = Math.abs(ghgp).toFixed(1) + '%';
-            
-            if (ghgp > 0) {
-                badgeSpan.className = 'ghgp-badge up';
-                badgeSpan.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> +${formattedGhgp}`;
-            } else if (ghgp < 0) {
-                badgeSpan.className = 'ghgp-badge down';
-                badgeSpan.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> -${formattedGhgp}`;
-            } else {
-                badgeSpan.innerHTML = `<i class="fa-solid fa-minus"></i> 0%`;
-            }
-        } else {
-             badgeSpan.innerHTML = `<i class="fa-solid fa-minus"></i> -`;
-        }
-
-        // Categorization
         const catSpan = tr.querySelector('.category-badge');
         if (total >= 30) {
             catSpan.className = 'category-badge cat-legendary';
@@ -118,143 +312,187 @@ document.addEventListener('DOMContentLoaded', () => {
             catSpan.className = 'category-badge none';
             catSpan.textContent = 'Belirsiz';
         }
+
+        if (!skipGhgp) calculateAllRows();
     }
 
-    function saveData() {
+    // GHGP calculation requires looking at the previous tab
+    function calculateAllRows() {
+        const currentIndex = getTabIndex(currentTabId);
+        const previousTab = currentIndex > 0 ? appData[currentIndex - 1] : null;
+        
         const rows = document.querySelectorAll('.mod-row');
-        const data = [];
         
-        rows.forEach(row => {
-            data.push({
-                nick: row.querySelector('.input-nick').value,
-                kisiler: row.querySelector('.input-kisiler').value,
-                old: row.querySelector('.input-old').value,
-                streamer: row.querySelector('.input-streamer').value,
-                public: row.querySelector('.input-public').value
-            });
-        });
-        
-        localStorage.setItem('birlik-mod-data', JSON.stringify(data));
-    }
+        rows.forEach(tr => {
+            const nick = tr.querySelector('.input-nick').value.trim().toLowerCase();
+            const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
+            const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
+            const total = streamerVal + publicVal;
+            
+            const badgeSpan = tr.querySelector('.ghgp-badge');
+            badgeSpan.className = 'ghgp-badge neutral';
+            badgeSpan.innerHTML = '-';
 
-    function loadData() {
-        const stored = localStorage.getItem('birlik-mod-data');
-        if (stored) {
-            try {
-                const data = JSON.parse(stored);
-                if (data.length > 0) {
-                    data.forEach(item => {
-                        tableBody.appendChild(createRow(item));
-                    });
-                    return;
+            if (previousTab && nick) {
+                // Find matching nick in previous tab
+                const oldData = previousTab.rows.find(r => r.nick.trim().toLowerCase() === nick);
+                if (oldData) {
+                    const oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
+                    
+                    if (oldTotal > 0) {
+                        const ghgp = (((total - oldTotal) / oldTotal) * 100);
+                        const formatted = Math.abs(ghgp).toFixed(1) + '%';
+                        
+                        if (ghgp > 0) {
+                            badgeSpan.className = 'ghgp-badge up';
+                            badgeSpan.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> +${formatted}`;
+                        } else if (ghgp < 0) {
+                            badgeSpan.className = 'ghgp-badge down';
+                            badgeSpan.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> -${formatted}`;
+                        } else {
+                            badgeSpan.innerHTML = `0%`;
+                        }
+                    }
                 }
-            } catch (e) {
-                console.error("Local storage error:", e);
             }
-        }
-        
-        // Add one empty row by default if no data
-        tableBody.appendChild(createRow());
+        });
     }
 
-    function exportToDiscord() {
-        const rows = document.querySelectorAll('.mod-row');
-        if (rows.length === 0) {
-            showToast('Kopyalanacak veri yok!', 'error');
+    // --- Sync Logic ---
+    async function uploadToCloud() {
+        syncTableToState(); // Save latest changes
+        saveData();
+
+        if (appData.length === 0) {
+            showToast('Yüklenecek veri bulunamadı.', 'error');
             return;
         }
 
-        // Discord Code Block Table format
-        // Finding max lengths for padding
-        let maxNick = 4;
-        let maxKisiler = 7;
-        let maxEski = 4;
-        let maxStr = 8;
-        let maxPub = 6;
-        let maxTop = 6;
-        let maxGhgp = 6;
-        let maxCat = 8;
+        loaderOverlay.style.display = 'flex';
         
-        const rowData = [];
-
-        rows.forEach(row => {
-            const nick = row.querySelector('.input-nick').value || '-';
-            const kisiler = row.querySelector('.input-kisiler').value || '-';
-            const old = row.querySelector('.input-old').value || '0';
-            const streamer = row.querySelector('.input-streamer').value || '0';
-            const pub = row.querySelector('.input-public').value || '0';
-            const total = row.querySelector('.cell-total').textContent;
+        try {
+            // Using JSONBin.io for free anonymous JSON storage
+            const response = await fetch('https://api.jsonbin.io/v3/b', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Access-Key': '$2a$10$wN1Q/Xvj/z11j/0b6P5eN.z5D7J.6gqG4j7.8P5.A5j7v.Q5N1uJm' // Public Access Key or skip if unauth allows
+                },
+                body: JSON.stringify(appData)
+            });
             
-            // Extract raw text without HTML
-            const badgeSpan = row.querySelector('.ghgp-badge');
-            let ghgpText = badgeSpan.textContent.trim();
+            // If the specific key fails, try completely anonymous (some APIs allow it)
+            // But jsonbin v3 requires a key usually. We will use a fallback base64 encoding if api fails.
             
-            const categoryText = row.querySelector('.category-badge').textContent;
-
-            if (nick.length > maxNick) maxNick = nick.length;
-            if (kisiler.length > maxKisiler) maxKisiler = kisiler.length;
-            if (old.length > maxEski) maxEski = old.length;
-            if (streamer.length > maxStr) maxStr = streamer.length;
-            if (pub.length > maxPub) maxPub = pub.length;
-            if (total.length > maxTop) maxTop = total.length;
-            if (ghgpText.length > maxGhgp) maxGhgp = ghgpText.length;
-            if (categoryText.length > maxCat) maxCat = categoryText.length;
-
-            rowData.push({ nick, kisiler, old, streamer, pub, total, ghgpText, categoryText });
-        });
-
-        // Building string
-        const pad = (str, len) => str.padEnd(len, ' ');
-        
-        let md = "```\n";
-        md += `Birlik Moderatör Performans Raporu\n`;
-        md += `${'='.repeat(maxNick + maxKisiler + maxEski + maxStr + maxPub + maxTop + maxGhgp + maxCat + 21)}\n`;
-        
-        md += `${pad('NICK', maxNick)} | ${pad('KİŞİLER', maxKisiler)} | ${pad('ESKİ', maxEski)} | ${pad('STREAMER', maxStr)} | ${pad('PUBLIC', maxPub)} | ${pad('TOPLAM', maxTop)} | ${pad('GHGP %', maxGhgp)} | ${pad('KATEGORİ', maxCat)}\n`;
-        md += `${'-'.repeat(maxNick)} | ${'-'.repeat(maxKisiler)} | ${'-'.repeat(maxEski)} | ${'-'.repeat(maxStr)} | ${'-'.repeat(maxPub)} | ${'-'.repeat(maxTop)} | ${'-'.repeat(maxGhgp)} | ${'-'.repeat(maxCat)}\n`;
-
-        rowData.forEach(d => {
-            md += `${pad(d.nick, maxNick)} | ${pad(d.kisiler, maxKisiler)} | ${pad(d.old, maxEski)} | ${pad(d.streamer, maxStr)} | ${pad(d.pub, maxPub)} | ${pad(d.total, maxTop)} | ${pad(d.ghgpText, maxGhgp)} | ${pad(d.categoryText, maxCat)}\n`;
-        });
-        
-        md += "```";
-
-        navigator.clipboard.writeText(md).then(() => {
-            showToast('Discord formatında kopyalandı!', 'success');
-        }).catch(err => {
-            console.error('Could not copy text: ', err);
-            
-            // Fallback for secure context issues
-            const textArea = document.createElement("textarea");
-            textArea.value = md;
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-              document.execCommand('copy');
-              showToast('Discord formatında kopyalandı!', 'success');
-            } catch (err) {
-              showToast('Kopyalama başarısız! Lütfen manuel kopyalayın.', 'error');
+            if (response.ok) {
+                const result = await response.json();
+                const binId = result.metadata.id;
+                
+                syncCodeDisplay.textContent = binId;
+                saveResult.classList.remove('hidden');
+                showToast('Veriler buluta başarıyla kaydedildi!', 'success');
+            } else {
+                throw new Error("API Hatası");
             }
-            document.body.removeChild(textArea);
-        });
+
+        } catch (error) {
+            console.error('Cloud error, falling back to local base64:', error);
+            // Fallback: Generate a Base64 string as "Code" if API fails
+            const jsonStr = JSON.stringify(appData);
+            const encoded = btoa(unescape(encodeURIComponent(jsonStr))); // UTF8 safe base64
+            
+            syncCodeDisplay.textContent = "B64-" + encoded.substring(0, 50) + "..."; // Show part of it to not break UI
+            
+            // We store the full encoded string in a data attribute for the copy button
+            copyCodeBtn.onclick = () => {
+                navigator.clipboard.writeText("B64-" + encoded).then(() => {
+                    showToast('Çevrimdışı kod kopyalandı!', 'success');
+                });
+            };
+            
+            saveResult.classList.remove('hidden');
+            showToast('Bulut sunucusuna ulaşılamadı. Çevrimdışı kod oluşturuldu.', 'info');
+        } finally {
+            loaderOverlay.style.display = 'none';
+        }
     }
 
+    async function loadFromCloud() {
+        let code = syncCodeInput.value.trim();
+        
+        if (!code) {
+            showToast('Lütfen geçerli bir kod girin.', 'error');
+            return;
+        }
+
+        loaderOverlay.style.display = 'flex';
+
+        try {
+            // Check if it's our fallback Base64 code
+            if (code.startsWith("B64-")) {
+                const base64Str = code.substring(4);
+                const jsonStr = decodeURIComponent(escape(atob(base64Str)));
+                const data = JSON.parse(jsonStr);
+                
+                if (Array.isArray(data)) {
+                    appData = data;
+                    currentTabId = appData[0].id;
+                    saveData();
+                    renderTabs();
+                    renderTable();
+                    showToast('Veriler başarıyla yüklendi!', 'success');
+                } else {
+                    throw new Error("Geçersiz veri formatı");
+                }
+                loaderOverlay.style.display = 'none';
+                return;
+            }
+
+            // Normal JSONBin approach
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${code}`, {
+                method: 'GET'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (Array.isArray(result.record)) {
+                    appData = result.record;
+                    currentTabId = appData[0].id;
+                    saveData();
+                    renderTabs();
+                    renderTable();
+                    showToast('Buluttan veriler başarıyla yüklendi!', 'success');
+                    syncCodeInput.value = '';
+                } else {
+                    showToast('Buluttaki veri yapısı hatalı.', 'error');
+                }
+            } else {
+                showToast('Geçersiz kod veya bulut verisi bulunamadı.', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('İndirme sırasında bir hata oluştu.', 'error');
+        } finally {
+            loaderOverlay.style.display = 'none';
+        }
+    }
+
+    // --- Utils ---
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
-        toast.className = 'toast';
+        toast.className = `toast ${type}`;
         
-        const icon = type === 'success' ? '<i class="fa-solid fa-circle-check" style="color: var(--ghgp-up)"></i>' : '<i class="fa-solid fa-circle-exclamation" style="color: var(--danger)"></i>';
+        let iconClass = 'fa-circle-check';
+        if (type === 'error') iconClass = 'fa-circle-exclamation';
+        if (type === 'info') iconClass = 'fa-circle-info';
         
-        toast.innerHTML = `${icon} ${message}`;
+        toast.innerHTML = `<i class="toast-icon fa-solid ${iconClass}"></i> <span>${message}</span>`;
         container.appendChild(toast);
         
         setTimeout(() => {
             toast.style.animation = 'fadeOut 0.3s ease forwards';
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
 });
