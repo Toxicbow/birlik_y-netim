@@ -60,14 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        if (appData.length === 0) {
-            // Default first tab if nothing exists
-            addTab("1. Hafta (Örnek)");
-        } else {
+        if (appData.length > 0) {
             currentTabId = appData[0].id;
-            renderTabs();
-            renderTable();
+        } else {
+            currentTabId = null;
         }
+        renderTabs();
+        renderTable();
     }
 
     function saveData() {
@@ -122,13 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         deleteTabBtn.addEventListener('click', () => {
-            if (appData.length <= 1) {
-                showToast('Son tablo silinemez!', 'error');
-                return;
-            }
+            if (appData.length === 0) return;
             if (confirm('Bu tabloyu ve içindeki tüm verileri silmek istediğinize emin misiniz?')) {
                 appData = appData.filter(t => t.id !== currentTabId);
-                currentTabId = appData[0].id;
+                if (appData.length > 0) {
+                    currentTabId = appData[0].id;
+                } else {
+                    currentTabId = null;
+                }
                 saveData();
                 renderTabs();
                 renderTable();
@@ -205,6 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (currentTab) {
             currentTabTitle.textContent = currentTab.name;
+            document.getElementById('add-row-btn').style.display = 'inline-flex';
+            document.getElementById('delete-tab-btn').style.display = 'inline-flex';
             
             if (currentTab.rows && currentTab.rows.length > 0) {
                 currentTab.rows.forEach(rowData => {
@@ -212,6 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     tableBody.appendChild(tr);
                 });
             }
+        } else {
+            currentTabTitle.textContent = 'Tablo Bulunmuyor';
+            document.getElementById('add-row-btn').style.display = 'none';
+            document.getElementById('delete-tab-btn').style.display = 'none';
         }
         checkEmptyState();
         calculateAllRows(); // Calculate GHGP after rendering
@@ -237,8 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function checkEmptyState() {
-        if (tableBody.children.length === 0) {
+        if (!currentTabId) {
             emptyState.style.display = 'flex';
+            emptyState.innerHTML = '<i class="fa-solid fa-folder-open"></i><h3>Tablo Bulunamadı</h3><p>Yeni bir veri tablosu oluşturmak için üstteki + butonunu kullanın.</p>';
+            tableWrapper.style.display = 'none';
+        } else if (tableBody.children.length === 0) {
+            emptyState.style.display = 'flex';
+            emptyState.innerHTML = '<i class="fa-solid fa-table-list"></i><h3>Veri Bulunamadı</h3><p>Tabloya veri eklemek için "Satır Ekle" butonunu kullanın.</p>';
             tableWrapper.style.display = 'none';
         } else {
             emptyState.style.display = 'none';
@@ -368,26 +379,31 @@ document.addEventListener('DOMContentLoaded', () => {
         loaderOverlay.style.display = 'flex';
         
         try {
-            // Using JSONBin.io for free anonymous JSON storage
-            const response = await fetch('https://api.jsonbin.io/v3/b', {
+            // Using restful-api.dev for free JSON storage
+            const payload = {
+                name: "birlik-v2",
+                data: appData
+            };
+            
+            const response = await fetch('https://api.restful-api.dev/objects', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Access-Key': '$2a$10$wN1Q/Xvj/z11j/0b6P5eN.z5D7J.6gqG4j7.8P5.A5j7v.Q5N1uJm' // Public Access Key or skip if unauth allows
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(appData)
+                body: JSON.stringify(payload)
             });
-            
-            // If the specific key fails, try completely anonymous (some APIs allow it)
-            // But jsonbin v3 requires a key usually. We will use a fallback base64 encoding if api fails.
             
             if (response.ok) {
                 const result = await response.json();
-                const binId = result.metadata.id;
+                const binId = result.id;
                 
-                syncCodeDisplay.textContent = binId;
-                saveResult.classList.remove('hidden');
-                showToast('Veriler buluta başarıyla kaydedildi!', 'success');
+                if (binId) {
+                    syncCodeDisplay.textContent = binId;
+                    saveResult.classList.remove('hidden');
+                    showToast('Veriler buluta başarıyla kaydedildi!', 'success');
+                } else {
+                    throw new Error("API Hatası (ID dönmedi)");
+                }
             } else {
                 throw new Error("API Hatası");
             }
@@ -445,16 +461,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Normal JSONBin approach
-            const response = await fetch(`https://api.jsonbin.io/v3/b/${code}`, {
+            // Normal REST API approach
+            const response = await fetch(`https://api.restful-api.dev/objects/${code}`, {
                 method: 'GET'
             });
 
             if (response.ok) {
                 const result = await response.json();
-                if (Array.isArray(result.record)) {
-                    appData = result.record;
-                    currentTabId = appData[0].id;
+                if (result && result.data && Array.isArray(result.data)) {
+                    appData = result.data;
+                    currentTabId = appData.length > 0 ? appData[0].id : null;
                     saveData();
                     renderTabs();
                     renderTable();
