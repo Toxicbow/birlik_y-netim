@@ -56,6 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stored) {
             try {
                 appData = JSON.parse(stored);
+                // Migration: Ensure all existing tabs have a type
+                appData.forEach(tab => {
+                    if (!tab.type) tab.type = 'ses-sorumlulugu';
+                });
             } catch (e) {
                 console.error("Parse error", e);
                 appData = [];
@@ -333,16 +337,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const newData = [];
         
         rows.forEach(row => {
+            const nickInput = row.querySelector('.input-nick');
+            const kisilerInput = row.querySelector('.input-kisiler');
+            
+            if (!nickInput || !kisilerInput) return; // Skip if basic fields missing
+
             const data = {
-                nick: row.querySelector('.input-nick').value,
-                kisiler: row.querySelector('.input-kisiler').value
+                nick: nickInput.value,
+                kisiler: kisilerInput.value
             };
             
-            if (currentView === 'ses-sorumlulugu') {
-                data.streamer = row.querySelector('.input-streamer').value;
-                data.public = row.querySelector('.input-public').value;
+            // Important: Use currentTab.type to determine which fields to save, 
+            // rather than just currentView, to be extra safe during transitions.
+            const tabType = currentTab.type || 'ses-sorumlulugu';
+
+            if (tabType === 'ses-sorumlulugu') {
+                const sInput = row.querySelector('.input-streamer');
+                const pInput = row.querySelector('.input-public');
+                if (sInput) data.streamer = sInput.value;
+                if (pInput) data.public = pInput.value;
             } else {
-                data.kayitlar = row.querySelector('.input-kayitlar').value;
+                const kInput = row.querySelector('.input-kayitlar');
+                if (kInput) data.kayitlar = kInput.value;
             }
             
             newData.push(data);
@@ -367,7 +383,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createRow(data = {}) {
-        const template = currentView === 'ses-sorumlulugu' ? rowTemplateSes : rowTemplateKayit;
+        const currentTab = getTabObject(currentTabId);
+        const tabType = currentTab ? (currentTab.type || 'ses-sorumlulugu') : currentView;
+        
+        const template = tabType === 'ses-sorumlulugu' ? rowTemplateSes : rowTemplateKayit;
         const clone = template.content.cloneNode(true);
         const tr = clone.querySelector('tr');
         
@@ -376,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
             kisiler: tr.querySelector('.input-kisiler')
         };
         
-        if (currentView === 'ses-sorumlulugu') {
+        if (tabType === 'ses-sorumlulugu') {
             inputs.streamer = tr.querySelector('.input-streamer');
             inputs.public = tr.querySelector('.input-public');
         } else {
@@ -386,11 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.nick) inputs.nick.value = data.nick;
         if (data.kisiler) inputs.kisiler.value = data.kisiler;
         
-        if (currentView === 'ses-sorumlulugu') {
-            if (data.streamer !== undefined && data.streamer !== '') inputs.streamer.value = data.streamer;
-            if (data.public !== undefined && data.public !== '') inputs.public.value = data.public;
+        if (tabType === 'ses-sorumlulugu') {
+            if (inputs.streamer && data.streamer !== undefined && data.streamer !== '') inputs.streamer.value = data.streamer;
+            if (inputs.public && data.public !== undefined && data.public !== '') inputs.public.value = data.public;
         } else {
-            if (data.kayitlar !== undefined && data.kayitlar !== '') inputs.kayitlar.value = data.kayitlar;
+            if (inputs.kayitlar && data.kayitlar !== undefined && data.kayitlar !== '') inputs.kayitlar.value = data.kayitlar;
         }
 
         Object.values(inputs).forEach(input => {
@@ -419,15 +438,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Only calculating Total and Category for single row
     function calculateRow(tr, skipGhgp = false) {
+        const currentTab = getTabObject(currentTabId);
+        const tabType = currentTab ? (currentTab.type || 'ses-sorumlulugu') : currentView;
+        
         let total = 0;
         const catSpan = tr.querySelector('.category-badge');
+        if (!catSpan) return;
 
-        if (currentView === 'ses-sorumlulugu') {
-            const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
-            const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
+        if (tabType === 'ses-sorumlulugu') {
+            const sInput = tr.querySelector('.input-streamer');
+            const pInput = tr.querySelector('.input-public');
+            if (!sInput || !pInput) return;
+
+            const streamerVal = parseFloat(sInput.value) || 0;
+            const publicVal = parseFloat(pInput.value) || 0;
             total = streamerVal + publicVal;
             
-            tr.querySelector('.cell-total').textContent = Number.isInteger(total) ? total : total.toFixed(1);
+            const totalCell = tr.querySelector('.cell-total');
+            if (totalCell) totalCell.textContent = Number.isInteger(total) ? total : total.toFixed(1);
 
             if (total >= 30) {
                 catSpan.className = 'category-badge cat-good';
@@ -444,7 +472,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             // Kayıt Sorumluluğu
-            total = parseInt(tr.querySelector('.input-kayitlar').value) || 0;
+            const kInput = tr.querySelector('.input-kayitlar');
+            if (!kInput) return;
+            total = parseInt(kInput.value) || 0;
             
             if (total >= 30) {
                 catSpan.className = 'category-badge cat-good';
@@ -466,11 +496,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // GHGP calculation requires looking at the previous tab
     function calculateAllRows() {
+        const currentTab = getTabObject(currentTabId);
+        if (!currentTab) return;
+        const tabType = currentTab.type || 'ses-sorumlulugu';
+
         const currentIndex = appData.findIndex(t => t.id === currentTabId);
         // Find previous tab OF THE SAME TYPE
         let previousTab = null;
         for (let i = currentIndex - 1; i >= 0; i--) {
-            if ((appData[i].type || 'ses-sorumlulugu') === currentView) {
+            if ((appData[i].type || 'ses-sorumlulugu') === tabType) {
                 previousTab = appData[i];
                 break;
             }
@@ -479,17 +513,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = document.querySelectorAll('.mod-row');
         
         rows.forEach(tr => {
-            const nick = tr.querySelector('.input-nick').value.trim().toLowerCase();
+            const nickInput = tr.querySelector('.input-nick');
+            if (!nickInput) return;
+            const nick = nickInput.value.trim().toLowerCase();
+            
             let total = 0;
-            if (currentView === 'ses-sorumlulugu') {
-                const streamerVal = parseFloat(tr.querySelector('.input-streamer').value) || 0;
-                const publicVal = parseFloat(tr.querySelector('.input-public').value) || 0;
-                total = streamerVal + publicVal;
+            if (tabType === 'ses-sorumlulugu') {
+                const sInput = tr.querySelector('.input-streamer');
+                const pInput = tr.querySelector('.input-public');
+                if (sInput && pInput) {
+                    total = (parseFloat(sInput.value) || 0) + (parseFloat(pInput.value) || 0);
+                }
             } else {
-                total = parseFloat(tr.querySelector('.input-kayitlar').value) || 0;
+                const kInput = tr.querySelector('.input-kayitlar');
+                if (kInput) {
+                    total = parseFloat(kInput.value) || 0;
+                }
             }
             
             const badgeSpan = tr.querySelector('.ghgp-badge');
+            if (!badgeSpan) return;
             badgeSpan.className = 'ghgp-badge neutral';
             badgeSpan.innerHTML = '-';
 
@@ -497,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const oldData = previousTab.rows.find(r => r.nick.trim().toLowerCase() === nick);
                 if (oldData) {
                     let oldTotal = 0;
-                    if (currentView === 'ses-sorumlulugu') {
+                    if (tabType === 'ses-sorumlulugu') {
                         oldTotal = (parseFloat(oldData.streamer) || 0) + (parseFloat(oldData.public) || 0);
                     } else {
                         oldTotal = parseFloat(oldData.kayitlar) || 0;
